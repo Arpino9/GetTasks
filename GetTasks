@@ -1,0 +1,117 @@
+/**
+ * 編集用
+ */
+// nヶ月前から取得
+const CompletedMin = 12;
+// nヶ月前まで取得
+const CompletedMax = 10;
+
+// シート名
+const SheetName = "ToDo";
+// シートID(シートURLの「https://docs.google.com/spreadsheets/d/」から「/edit#gid=0」までの文字列)
+const SpreadSheetId = "1tc5uFTh09PBVVnV2OYmGZ3svY6C-6SwCAF6KIUO8l9c";
+// カラム数
+const ColumnCount = 3;
+// 出力開始行
+let OutPutStartRow = 2;
+
+/**
+ * タスクリストの取得
+ */
+// シート定義
+let Sheet       = SpreadsheetApp.openById(SpreadSheetId).getSheetByName(SheetName);
+
+function GetTaskLists() {
+  var taskLists = Tasks.Tasklists.list();
+
+  if (!taskLists.items)
+  {
+    Logger.log('No task lists found.');
+  }
+
+  // シートのクリア
+  Sheet.getRange(OutPutStartRow, 1, Sheet.getLastRow() + 1, ColumnCount).clearContent();
+  taskLists.items.sort();
+
+  for (var i = 0; i < taskLists.items.length; i++) 
+  {
+    var taskList = taskLists.items[i];
+
+    if (taskList.title.match(/基本情報/) || 
+        taskList.title.match(/応用情報/) ||
+        taskList.title.match(/データベーススペシャリスト/) ||
+        taskList.title.match(/ネットワークスペシャリスト/) ||
+        taskList.title.match(/プロジェクトマネージャ/) ||
+        taskList.title.match(/情報処理安全確保支援士/))
+    {
+      GetTasks(taskList.id, taskList.title)
+
+      let range = Sheet.getRange(OutPutStartRow,1, Sheet.getLastRow() + 1, ColumnCount);
+
+      // ジャンル別にソート
+      range.sort(
+        {
+          column   : 1, 
+          ascending: true
+        }
+      );
+    }
+  }
+}
+
+/**
+ * タスクの取得
+ */
+function GetTasks(ToDoListID, TaskTitle) {
+  var now = new Date();
+  var completedMax = new Date();
+  var completedMin = new Date();
+  completedMax.setMonth(now.getMonth() - CompletedMax);
+  completedMin.setMonth(now.getMonth() - CompletedMin);
+
+  // タスク全部取得オプション
+  const options = 
+  {
+    showCompleted: true,
+    showDeleted  : true,
+    showHidden   : true,
+    completedMax : completedMax.toISOString(),
+    completedMin : completedMin.toISOString(),
+    maxResults   : 100,
+  };
+
+  const tasks = Tasks.Tasks.list(ToDoListID,options).getItems().sort();
+
+  if (!tasks) 
+  {
+    console.log('登録されているタスクはありません');
+  }
+
+  for (let i = 0; i < tasks.length; i++) 
+  {
+    let gotTask = tasks[i];
+    
+    if (gotTask.due == undefined)
+    {
+      continue;
+    }
+
+    let startDate = new Date();
+    let endDate   = new Date();
+    let dueDate   = new Date(gotTask.due.slice(0, 10));
+
+    startDate.setMonth(endDate.getMonth() - CompletedMax);
+
+    if (dueDate < startDate)
+    {
+      // タイトル
+      Sheet.getRange(OutPutStartRow, 1).setValue(TaskTitle);
+      // タスク名
+      Sheet.getRange(OutPutStartRow, 2).setValue(gotTask.title);
+      // 完了日付
+      Sheet.getRange(OutPutStartRow, 3).setValue(dueDate);
+      
+      OutPutStartRow++;
+    }
+  }
+}
